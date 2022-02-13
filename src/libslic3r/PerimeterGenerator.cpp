@@ -134,12 +134,12 @@ void PerimeterGenerator::process()
                 }
             }
 
-            if (overhangs_width_speed > 0 && this->config->overhangs_width_speed.value < this->config->overhangs_width.value) {
+            if (overhangs_width_speed > 0 && (overhangs_width_speed < overhangs_width_flow || overhangs_width_flow == 0)) {
                 this->_lower_slices_bridge_speed_small = offset((simplified.empty() ? *this->lower_slices : simplified), (coordf_t)overhangs_width_speed_90 - (coordf_t)(ext_perimeter_width / 2));
                 this->_lower_slices_bridge_speed_big = offset((simplified.empty() ? *this->lower_slices : simplified), (coordf_t)overhangs_width_speed_110 - (coordf_t)(ext_perimeter_width / 2));
             }
             if (overhangs_width_flow > 0) {
-                if (overhangs_width_speed_110 == overhangs_width_flow_90 && this->config->overhangs_width_speed.value < this->config->overhangs_width.value)
+                if (overhangs_width_speed_110 == overhangs_width_flow_90 && overhangs_width_speed < overhangs_width_flow)
                     this->_lower_slices_bridge_flow_small = this->_lower_slices_bridge_speed_big;
                 else
                     this->_lower_slices_bridge_flow_small = offset((simplified.empty() ? *this->lower_slices : simplified), (coordf_t)overhangs_width_flow_90 - (coordf_t)(ext_perimeter_width / 2));
@@ -1233,20 +1233,45 @@ ExtrusionPaths PerimeterGenerator::create_overhangs(const Polyline& loop_polygon
     bool no_small_flow = _lower_slices_bridge_speed_big == _lower_slices_bridge_flow_small;
     Polylines small_flow;
     Polylines big_flow;
+#ifdef _DEBUG
+    for (Polyline& poly : ok_polylines)
+        for (int i = 0; i < poly.points.size() - 1; i++)
+            assert(poly.points[i] != poly.points[i + 1]);
+#endif
 
     Polylines* previous = &ok_polylines;
-    if (this->config->overhangs_width_speed.value > 0 && this->config->overhangs_width_speed.value < this->config->overhangs_width.value) {
+    if (this->config->overhangs_width_speed.value > 0 && (this->config->overhangs_width_speed.value < this->config->overhangs_width.value || this->config->overhangs_width.value == 0)) {
         if (!this->_lower_slices_bridge_speed_small.empty()) {
             small_speed = diff_pl(*previous, this->_lower_slices_bridge_speed_small);
+#ifdef _DEBUG
+            for (Polyline& poly : small_speed) //                       assert small_speed
+                for (int i = 0; i < poly.points.size() - 1; i++) //     assert small_speed
+                    assert(poly.points[i] != poly.points[i + 1]); //    assert small_speed
+#endif
             if (!small_speed.empty()) {
                 *previous = intersection_pl(*previous, this->_lower_slices_bridge_speed_small);
+#ifdef _DEBUG
+                for (Polyline& poly : *previous) //                         assert previous
+                    for (int i = 0; i < poly.points.size() - 1; i++) //     assert previous
+                        assert(poly.points[i] != poly.points[i + 1]); //    assert previous
+#endif
                 previous = &small_speed;
             }
         }
         if (!this->_lower_slices_bridge_speed_big.empty()) {
             big_speed = diff_pl(*previous, this->_lower_slices_bridge_speed_big);
+#ifdef _DEBUG
+            for (Polyline& poly : big_speed) //                         assert big_speed
+                for (int i = 0; i < poly.points.size() - 1; i++) //     assert big_speed
+                    assert(poly.points[i] != poly.points[i + 1]); //    assert big_speed
+#endif
             if (!big_speed.empty()) {
                 *previous = intersection_pl(*previous, this->_lower_slices_bridge_speed_big);
+#ifdef _DEBUG
+                for (Polyline& poly : *previous) //                         assert previous
+                    for (int i = 0; i < poly.points.size() - 1; i++) //     assert previous
+                        assert(poly.points[i] != poly.points[i + 1]); //    assert previous
+#endif
                 previous = &big_speed;
             }
         }
@@ -1254,15 +1279,35 @@ ExtrusionPaths PerimeterGenerator::create_overhangs(const Polyline& loop_polygon
     if (this->config->overhangs_width.value > 0) {
         if (!this->_lower_slices_bridge_flow_small.empty()) {
             small_flow = diff_pl(*previous, this->_lower_slices_bridge_flow_small);
+#ifdef _DEBUG
+            for (Polyline& poly : small_flow) //                        assert small_flow
+                for (int i = 0; i < poly.points.size() - 1; i++) //     assert small_flow
+                    assert(poly.points[i] != poly.points[i + 1]); //    assert small_flow
+#endif
             if (!small_flow.empty()) {
                 *previous = intersection_pl(*previous, this->_lower_slices_bridge_flow_small);
+#ifdef _DEBUG
+                for (Polyline& poly : *previous) //                         assert previous
+                    for (int i = 0; i < poly.points.size() - 1; i++) //     assert previous
+                        assert(poly.points[i] != poly.points[i + 1]); //    assert previous
+#endif
                 previous = &small_flow;
             }
         }
         if (!this->_lower_slices_bridge_flow_big.empty()) {
             big_flow = diff_pl(*previous, this->_lower_slices_bridge_flow_big);
+#ifdef _DEBUG
+            for (Polyline& poly : big_flow) //                          assert big_flow
+                for (int i = 0; i < poly.points.size() - 1; i++) //     assert big_flow
+                    assert(poly.points[i] != poly.points[i + 1]); //    assert big_flow
+#endif
             if (!big_flow.empty()) {
                 *previous = intersection_pl(*previous, this->_lower_slices_bridge_flow_big);
+#ifdef _DEBUG
+                for (Polyline& poly : *previous) //                         assert previous
+                    for (int i = 0; i < poly.points.size() - 1; i++) //     assert previous
+                        assert(poly.points[i] != poly.points[i + 1]); //    assert previous
+#endif
                 previous = &big_flow;
             }
         }
@@ -1715,7 +1760,7 @@ void PerimeterGenerator::_merge_thin_walls(ExtrusionEntityCollection &extrusions
                 searcher.search_result.loop->paths.insert(searcher.search_result.loop->paths.begin() + 1 + searcher.search_result.idx_path,
                     change_flow.paths.begin(), change_flow.paths.end());
                 //add the real extrusion path
-                change_flow.percent_extrusion = 0.9f;
+                change_flow.percent_extrusion = 9.f; // 0.9 but as we modified it by 0.1 just before, has to multiply by 10
                 change_flow.paths = std::vector<ExtrusionPath>();
                 change_flow.use(tws);
                 searcher.search_result.loop->paths.insert(searcher.search_result.loop->paths.begin() + 1 + searcher.search_result.idx_path,
@@ -1844,26 +1889,32 @@ PerimeterGenerator::_get_nearest_point(const PerimeterGeneratorLoops &children, 
 
 
 ExtrusionLoop
-PerimeterGenerator::_extrude_and_cut_loop(const PerimeterGeneratorLoop &loop, const Point entry_point, const Line &direction) const
+PerimeterGenerator::_extrude_and_cut_loop(const PerimeterGeneratorLoop &loop, const Point entry_point, const Line &direction, bool enforce_loop) const
 {
 
     bool need_to_reverse = false;
     Polyline initial_polyline;
-    const coord_t dist_cut = (coord_t)scale_(this->print_config->nozzle_diameter.get_at(this->config->perimeter_extruder - 1));
+    coord_t dist_cut = (coord_t)scale_(this->print_config->nozzle_diameter.get_at(this->config->perimeter_extruder - 1));
 
 
     if (loop.polygon.points.size() < 3) return ExtrusionLoop(elrDefault);
     if (loop.polygon.length() < dist_cut * 2) {
-        ExtrusionLoop single_point(elrDefault);
-        Polyline poly_point;
-        poly_point.append(loop.polygon.centroid());
-        single_point.paths.emplace_back(
-            loop.is_external() ? erExternalPerimeter : erPerimeter,
-            (double)(loop.is_external() ? this->_ext_mm3_per_mm : this->_mm3_per_mm),
-            (float)(loop.is_external() ? this->ext_perimeter_flow.width : this->perimeter_flow.width),
-            (float)(this->layer->height));
-        single_point.paths.back().polyline = poly_point;
-        return single_point;
+        if (enforce_loop) {
+            //do something to still use it
+            dist_cut = loop.polygon.length() / 4;
+        } else {
+            //reduce it ot a single-point loop that will eb emrged inside the complex path
+            ExtrusionLoop single_point(elrDefault);
+            Polyline poly_point;
+            poly_point.append(loop.polygon.centroid());
+            single_point.paths.emplace_back(
+                loop.is_external() ? erExternalPerimeter : erPerimeter,
+                (double)(loop.is_external() ? this->_ext_mm3_per_mm : this->_mm3_per_mm),
+                (float)(loop.is_external() ? this->ext_perimeter_flow.width : this->perimeter_flow.width),
+                (float)(this->layer->height));
+            single_point.paths.back().polyline = poly_point;
+            return single_point;
+        }
     }
     const size_t idx_closest_from_entry_point = loop.polygon.closest_point_index(entry_point);
     if (loop.polygon.points[idx_closest_from_entry_point].distance_to(entry_point) > SCALED_EPSILON) {
@@ -1889,7 +1940,7 @@ PerimeterGenerator::_extrude_and_cut_loop(const PerimeterGeneratorLoop &loop, co
     //std::vector<PerimeterPolylineNode> myPolylines;
     ExtrusionLoop my_loop;
 
-    //overhang / notoverhang
+loop.polygon
     {
         bool is_external = loop.is_external();
 
@@ -1916,12 +1967,15 @@ PerimeterGenerator::_extrude_and_cut_loop(const PerimeterGeneratorLoop &loop, co
             if (direction.length() > 0) {
                 Polyline direction_polyline;
                 for (ExtrusionPath &path : paths) {
-                    direction_polyline.points.insert(direction_polyline.points.end(), path.polyline.points.begin(), path.polyline.points.end());
+                    if(direction_polyline.size() == 0 || direction_polyline.points.back() != path.first_point())
+                        direction_polyline.points.insert(direction_polyline.points.end(), path.polyline.points.begin(), path.polyline.points.end());
                 }
                 for (int i = 0; i < direction_polyline.points.size() - 1; i++)
                     assert(direction_polyline.points[i] != direction_polyline.points[i + 1]);
-                direction_polyline.clip_start(SCALED_RESOLUTION);
-                direction_polyline.clip_end(SCALED_RESOLUTION);
+                if (direction_polyline.length() > perimeter_flow.scaled_width() / 8) {
+                    direction_polyline.clip_start(perimeter_flow.scaled_width() / 20);
+                    direction_polyline.clip_end(perimeter_flow.scaled_width() / 20);
+                }
                 coord_t dot = direction.dot(Line(direction_polyline.points.back(), direction_polyline.points.front()));
                 need_to_reverse = dot>0;
             }
@@ -1996,7 +2050,7 @@ PerimeterGenerator::_traverse_and_join_loops(const PerimeterGeneratorLoop &loop,
     //const coord_t dist_cut = (coord_t)scale_(this->print_config->nozzle_diameter.get_at(this->config->perimeter_extruder - 1));
     //TODO change this->external_perimeter_flow.scaled_width() if it's the first one!
     const coord_t max_width_extrusion = this->perimeter_flow.scaled_width();
-    ExtrusionLoop my_loop = _extrude_and_cut_loop(loop, entry_point);
+    ExtrusionLoop my_loop = _extrude_and_cut_loop(loop, entry_point, Line{ {0,0},{0,0} }, true);
 
     int child_idx = 0;
     //Polylines myPolylines = { myPolyline };
@@ -2059,10 +2113,10 @@ PerimeterGenerator::_traverse_and_join_loops(const PerimeterGeneratorLoop &loop,
                 outer_end->polyline.points.insert(outer_end->polyline.points.begin(), nearest.outter_best);
             }
             Polyline to_reduce = outer_start->polyline;
-            if (to_reduce.points.size()>1) to_reduce.clip_end(SCALED_RESOLUTION);
+            if (to_reduce.points.size()>1 && to_reduce.length() > (perimeter_flow.scaled_width() / 10)) to_reduce.clip_end(perimeter_flow.scaled_width() / 20);
             deletedSection.a = to_reduce.points.back();
             to_reduce = outer_end->polyline;
-            if (to_reduce.points.size()>1) to_reduce.clip_start(SCALED_RESOLUTION);
+            if (to_reduce.points.size()>1 && to_reduce.length() > (perimeter_flow.scaled_width() / 10)) to_reduce.clip_start(perimeter_flow.scaled_width() / 20);
             deletedSection.b = to_reduce.points.front();
             
             //get the inner loop to connect to us.
